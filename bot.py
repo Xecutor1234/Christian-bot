@@ -2,8 +2,9 @@ import discord
 import os
 from keep_alive import keep_alive
 import requests
-# No longer need PIL or io, so they have been removed.
 from google.generativeai.generative_models import GenerativeModel
+# --- THIS IS THE NEW IMPORT FOR THE FIX ---
+from urllib.parse import quote
 
 # We rely on the automatic key detection of GOOGLE_API_KEY
 
@@ -45,20 +46,22 @@ async def on_message(message):
     is_server_channel = isinstance(message.channel, discord.TextChannel)
     is_dm_channel = isinstance(message.channel, discord.DMChannel)
 
-    # --- FEATURE 1: AI IMAGE GENERATION (NEW, WORKING METHOD) ---
+    # --- FEATURE 1: AI IMAGE GENERATION (URL ENCODING FIX) ---
     if is_server_channel and message.channel.name == 'christian-ai-image-generation🎨':
         async with message.channel.typing():
             prompt = message.content
-            # We add extra descriptive words to get better images
             full_prompt = f"A high-quality, inspiring, respectful, cinematic image of: {prompt}"
 
-            # The URL for the Pollinations.ai image generation service
-            image_url = f"https://image.pollinations.ai/prompt/{full_prompt}"
+            # --- THIS IS THE FIX ---
+            # URL-encode the prompt to handle spaces and special characters safely
+            encoded_prompt = quote(full_prompt)
+            # ---------------------
+
+            image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
 
             await message.channel.send(f"Generating an image for: \"{prompt}\"...")
 
             try:
-                # We simply send the URL, and Discord will automatically show the image
                 await message.channel.send(image_url)
 
             except Exception as e:
