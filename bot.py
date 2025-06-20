@@ -90,7 +90,7 @@ async def on_message(message):
         return
 
     # SETUP COMMAND for the Prayer Request Button
-    if message.content == '!sendprayerbutton':
+    if message.content == '!sendprayer':
         if not message.author.guild_permissions.administrator:
             await message.channel.send("Sorry, only administrators can use this command.", delete_after=10)
             await message.delete()
