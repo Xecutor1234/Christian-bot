@@ -2,9 +2,7 @@ import discord
 import os
 from keep_alive import keep_alive
 import requests
-from PIL import Image
-import io
-# This is the specific, correct import path that your linter told us to use
+# No longer need PIL or io, so they have been removed.
 from google.generativeai.generative_models import GenerativeModel
 
 # We rely on the automatic key detection of GOOGLE_API_KEY
@@ -19,7 +17,6 @@ client = discord.Client(intents=intents)
 # --- HELPER FUNCTION FOR AI CHAT ---
 async def get_gemini_chat_response(user_message):
     try:
-        # We call GenerativeModel directly now, without "genai."
         model = GenerativeModel('gemini-1.5-flash-latest')
 
         chat_session = model.start_chat(history=[
@@ -48,29 +45,24 @@ async def on_message(message):
     is_server_channel = isinstance(message.channel, discord.TextChannel)
     is_dm_channel = isinstance(message.channel, discord.DMChannel)
 
-    # --- FEATURE 1: AI IMAGE GENERATION ---
+    # --- FEATURE 1: AI IMAGE GENERATION (NEW, WORKING METHOD) ---
     if is_server_channel and message.channel.name == 'christian-ai-image-generation🎨':
         async with message.channel.typing():
-            await message.channel.send(f"Generating an image for: \"{message.content}\"...")
+            prompt = message.content
+            # We add extra descriptive words to get better images
+            full_prompt = f"A high-quality, inspiring, respectful, cinematic image of: {prompt}"
+
+            # The URL for the Pollinations.ai image generation service
+            image_url = f"https://image.pollinations.ai/prompt/{full_prompt}"
+
+            await message.channel.send(f"Generating an image for: \"{prompt}\"...")
+
             try:
-                # We call GenerativeModel directly here as well
-                img_model = GenerativeModel('gemini-1.5-flash-latest')
-
-                response = img_model.generate_content(
-                    f"Generate a high-quality, inspiring, and respectful image based on Christian themes. Prompt: {message.content}",
-                    generation_config={"response_mime_type": "image/png"}
-                )
-
-                image_data = response.parts[0].inline_data.data
-                image = Image.open(io.BytesIO(image_data))
-
-                with io.BytesIO() as image_binary:
-                    image.save(image_binary, 'PNG')
-                    image_binary.seek(0)
-                    await message.channel.send(file=discord.File(fp=image_binary, filename='image.png'))
+                # We simply send the URL, and Discord will automatically show the image
+                await message.channel.send(image_url)
 
             except Exception as e:
-                print(f"Gemini Image API Error: {e}")
+                print(f"Image Generation Error: {e}")
                 await message.channel.send("Sorry, I was unable to generate an image for that prompt. Please try a different one.")
         return
 
