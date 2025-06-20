@@ -1,4 +1,5 @@
 run = "python bot.py"
+modules = ["python-3.11"]
 
 [deployment]
 run = ["python", "bot.py"]

@@ -1,11 +1,11 @@
 import discord
 import os
-import requests
 from keep_alive import keep_alive
-# --- THIS IS THE FINAL, PRECISE FIX ---
-# The error message told us the exact import path to use.
+import requests
+from PIL import Image
+import io
+# This is the specific, correct import path that your linter told us to use
 from google.generativeai.generative_models import GenerativeModel
-# ------------------------------------
 
 # We rely on the automatic key detection of GOOGLE_API_KEY
 
@@ -16,6 +16,24 @@ intents.message_content = True
 # Create a client instance
 client = discord.Client(intents=intents)
 
+# --- HELPER FUNCTION FOR AI CHAT ---
+async def get_gemini_chat_response(user_message):
+    try:
+        # We call GenerativeModel directly now, without "genai."
+        model = GenerativeModel('gemini-1.5-flash-latest')
+
+        chat_session = model.start_chat(history=[
+            {"role": "user", "parts": ["SYSTEM_INSTRUCTION"]},
+            {"role": "model", "parts": ["You are a kind, knowledgeable, and compassionate Christian AI assistant. Your purpose is to help users by answering questions about the Bible, Christian faith, and theology. Provide encouragement and support grounded in Christian principles. When citing scripture, please provide the reference (e.g., John 3:16). Always maintain a respectful and loving tone. You are a helpful guide, not a replacement for a pastor or personal study."]}
+        ])
+
+        response = chat_session.send_message(user_message)
+        return response.text
+
+    except Exception as e:
+        print(f"Gemini Chat API Error: {e}")
+        return "I'm sorry, I'm having a little trouble connecting to my thoughts right now. Please try again in a moment."
+
 # Event: When the bot is ready and online
 @client.event
 async def on_ready():
@@ -24,36 +42,49 @@ async def on_ready():
 # The main message-handling event
 @client.event
 async def on_message(message):
-    # Don't let the bot respond to its own messages
     if message.author == client.user:
         return
 
-    # Check if the message is in a server channel to avoid DM crashes
     is_server_channel = isinstance(message.channel, discord.TextChannel)
+    is_dm_channel = isinstance(message.channel, discord.DMChannel)
 
-    # AI Chatbot Logic
-    if is_server_channel and message.channel.name == 'chat-with-christian-bot':
+    # --- FEATURE 1: AI IMAGE GENERATION ---
+    if is_server_channel and message.channel.name == 'christian-ai-image-generation🎨':
+        async with message.channel.typing():
+            await message.channel.send(f"Generating an image for: \"{message.content}\"...")
+            try:
+                # We call GenerativeModel directly here as well
+                img_model = GenerativeModel('gemini-1.5-flash-latest')
+
+                response = img_model.generate_content(
+                    f"Generate a high-quality, inspiring, and respectful image based on Christian themes. Prompt: {message.content}",
+                    generation_config={"response_mime_type": "image/png"}
+                )
+
+                image_data = response.parts[0].inline_data.data
+                image = Image.open(io.BytesIO(image_data))
+
+                with io.BytesIO() as image_binary:
+                    image.save(image_binary, 'PNG')
+                    image_binary.seek(0)
+                    await message.channel.send(file=discord.File(fp=image_binary, filename='image.png'))
+
+            except Exception as e:
+                print(f"Gemini Image API Error: {e}")
+                await message.channel.send("Sorry, I was unable to generate an image for that prompt. Please try a different one.")
+        return
+
+    # --- FEATURE 2: AI CHATBOT IN DMs and a specific channel ---
+    if (is_server_channel and message.channel.name == 'chat-with-christian-bot') or is_dm_channel:
         if message.content.startswith('!'):
             return
 
         async with message.channel.typing():
-            try:
-                # We still don't need "genai." before this because we imported it directly
-                model = GenerativeModel(
-                    'gemini-1.5-flash-latest',
-                    system_instruction="You are a kind, knowledgeable, and compassionate Christian AI assistant. Your purpose is to help users by answering questions about the Bible, Christian faith, and theology. Provide encouragement and support grounded in Christian principles. When citing scripture, please provide the reference (e.g., John 3:16). Always maintain a respectful and loving tone. You are a helpful guide, not a replacement for a pastor or personal study."
-                )
-
-                chat_session = model.start_chat()
-                response = chat_session.send_message(message.content)
-                await message.channel.send(response.text)
-
-            except Exception as e:
-                print(f"Gemini API Error: {e}")
-                await message.channel.send("I'm sorry, I'm having a little trouble connecting to my thoughts right now. Please try again in a moment.")
+            response_text = await get_gemini_chat_response(message.content)
+            await message.channel.send(response_text)
         return
 
-    # Regular Commands
+    # --- YOUR OTHER COMMANDS ---
     if message.content.startswith('!ping'):
         await message.channel.send('Pong!')
 
