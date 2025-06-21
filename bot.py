@@ -126,7 +126,7 @@ async def on_message(message):
         return
 
     # Chatbot Feature
-    if (is_server_channel and message.channel.name == 'chat-with-christian-bot') or is_dm_channel:
+    if (is_server_channel and message.channel.name == 'chat-with-christian-bot🎤✝') or is_dm_channel:
         if message.content.startswith('!'):
             return
         async with message.channel.typing():
